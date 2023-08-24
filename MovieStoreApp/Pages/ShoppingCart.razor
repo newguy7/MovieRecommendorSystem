@@ -1,0 +1,96 @@
+﻿@page "/mycart"
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+@using MovieStoreApp.ModelsVM
+@inject ProtectedLocalStorage localStore
+
+
+<div class="row">
+    <div style="border:1px solid dodgerblue" class="col-md-6">
+<h4 class="text-center">My Shopping Cart</h4>
+<span style="font-size:smaller">To remove an item, change quantity to 0</span>
+<table style="border:1px solid dodgerblue;margin:0" class="table">
+    <thead>
+        <tr style="background-color:dodgerblue; color:white">
+            <th>MovieName</th>
+            <th>Price</th>
+            <th>Quantity</th>
+            <th>Amount</th>
+        </tr>
+    </thead>
+    <tbody>
+    @{
+        if (MyCart != null)
+        {
+            double total = 0;
+            foreach (var item in MyCart)
+            {
+                var amount = item.Price * item.Quantity;
+                <tr>
+                    <td>@item.Title</td>
+                    <td>@String.Format("{0:c}",item.Price)</td>
+                    <td><input class="form-control w-50"
+                    @onchange="(ce=>UpdateCart(item.MovieId,ce))" value="@item.Quantity"/></td>
+                    <td>@String.Format("{0:c}",amount)</td>
+                </tr>
+                total = total + item.Price * item.Quantity;
+            }
+
+            <tr>
+                <td><button @onclick="ClearCart" class="btn-danger">Clear Cart</button></td>
+                <td colspan="2" align="right">Total</td>
+                <td><b>@String.Format("{0:c}", total)</b></td>
+            </tr>
+        }
+    }
+    </tbody>
+</table>
+</div>    
+</div>
+
+@code {
+    [Parameter]
+    public List<CartItem>MyCart{ get; set; }
+
+    [Parameter]
+    public EventCallback OnShoppingCartChanged { get; set; }
+
+    int qty;
+
+    async Task UpdateCart(int movid, ChangeEventArgs ce)
+    {
+        if (MyCart == null)
+            return;
+        CartItem itemToRemove = null;
+        foreach (var item in MyCart)
+        {
+            var quantity = int.Parse(ce.Value.ToString());
+            if (quantity <= 0)
+            {
+                itemToRemove = item;
+                break;
+            }
+            if (item.MovieId == movid)
+                item.Quantity = int.Parse(ce.Value.ToString());
+        }
+        if (itemToRemove != null)
+            MyCart.Remove(itemToRemove);
+        await InvokeAsync(() => OnShoppingCartChanged.InvokeAsync());
+    }
+
+    async Task ClearCart()
+    {
+        MyCart.Clear();
+
+        // Clear the cart data from the local storage
+        //await localStore.RemoveAsync($"MYCART_{uinfo.UserId}");
+        
+        await InvokeAsync(() => OnShoppingCartChanged.InvokeAsync());        
+        
+    }
+    
+
+    protected override void OnInitialized()
+    {
+        
+    }
+}

@@ -1,0 +1,134 @@
+﻿@page "/login"
+@using Microsoft.AspNetCore.Authentication;
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Microsoft.AspNetCore.Components.Authorization
+@using Newtonsoft.Json
+@using MovieStoreApp.Models
+@using MovieStoreApp.ModelsVM
+@using MovieStoreApp.Repositories
+@inject MoviesAppDbContext context
+@inject ProtectedSessionStorage sessionStore
+@inject NavigationManager uriHelper
+
+<br />
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <h2 class="text-center mb-4">Login</h2>
+            <div class="card">
+                <div class="card-body">
+                    <EditForm Model="@Userlogin">
+                        <div class="form-group">
+                            <label for="email">Email:</label>
+                            <InputText id="email" class="form-control" @bind-Value="Userlogin.UserEmail" />
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password:</label>
+                            <InputText id="password" class="form-control" @bind-Value="Userlogin.Password" type="password" />
+                        </div>
+                        <div class="form-check mb-3">
+                            <InputCheckbox id="rememberMe" class="form-check-input" @bind-Value="RememberMe" />
+                            <label class="form-check-label" for="rememberMe">Remember Me</label>
+
+                        </div>
+                        <div class="text-center">
+                            <button type="button" class="btn btn-primary" @onclick="VerifyLogin">Log In</button>
+                        </div>
+                    </EditForm>
+                    <div class="mt-3 text-center">
+                        <a href="/forgotpassword">Forgot Password?</a>
+                    </div>
+                    <div class="mt-3 text-center">
+                        <p>Don't have an account? <a href="/signup">Sign Up</a></p>
+                    </div>
+                </div>
+                
+            </div>            
+            <p style="color:@infocolor">@Msg</p>
+        </div>
+    </div>
+</div>
+
+
+@code {
+    User Userlogin = new User();
+    string? Msg;    
+    string infocolor = "black";
+    private bool RememberMe { get; set; }
+
+    protected override void OnInitialized()
+    {
+        
+    }
+    
+    async Task<List<Movie>> GetRecommendedMovies()
+    {
+        MovieStoreAppRepositoryEF rep = new MovieStoreAppRepositoryEF(context);
+        List<Movie> movies = await rep.GetMostPopularMoviesAsync();
+        return movies;
+    }
+
+
+    async Task VerifyLogin()
+    {
+        MovieStoreAppRepositoryEF rep = new MovieStoreAppRepositoryEF(context);
+        UserInfo uinfo = rep.VerifyLogin(Userlogin);
+        if (uinfo != null)
+        {
+            
+            //store user info in session store
+            string jsonc = JsonConvert.SerializeObject(uinfo);
+            await sessionStore.SetAsync("USERINFO", jsonc);
+            
+
+            // Store the user ID in the session storage
+            await sessionStore.SetAsync("USERID", uinfo.UserId);
+
+            //store the user email in the session storage
+            await sessionStore.SetAsync("USEREMAIL", uinfo.Email);                     
+
+            if (RememberMe)
+            {                
+                // Store the "Remember Me" preference
+                await sessionStore.SetAsync("REMEMBERME", true);
+
+                // Save the user login information
+                await sessionStore.SetAsync("USERLOGIN", JsonConvert.SerializeObject(Userlogin));
+            }
+
+
+
+            infocolor = "green";
+            Msg = "Login successful"; 
+            
+            // fetch the recommended movies
+            List<Movie> recommendedMovies = await GetRecommendedMovies();
+            await sessionStore.SetAsync("RECOMMENDEDMOVIES", JsonConvert.SerializeObject(recommendedMovies));
+
+            await Task.Delay(500);       
+            //uriHelper.NavigateTo("/showmovies");
+            uriHelper.NavigateTo("/home");
+        }
+        else
+        {
+            infocolor = "red";
+            Msg = "Invalid login";
+        }
+        StateHasChanged();
+        //InvokeAsync(() => StateHasChanged());
+
+
+    }   
+
+    async Task Logout()
+    {
+        await sessionStore.DeleteAsync("USERINFO");
+        await sessionStore.DeleteAsync("USERID");
+        await sessionStore.DeleteAsync("USEREMAIL");
+        await sessionStore.DeleteAsync("USERLOGIN");
+        uriHelper.NavigateTo("/login");
+    }
+
+    
+
+}

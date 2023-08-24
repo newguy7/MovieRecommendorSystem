@@ -1,0 +1,139 @@
+﻿@using MovieStoreApp.Models
+
+<EditForm Model="@prod" OnValidSubmit="@SubmitForm">
+    <DataAnnotationsValidator/>
+<table class="col-md-5">
+    @if (ShowIdTextBox)
+        {
+            <tr>
+                <td>Movie Id</td>
+                <td><input class="form-control" @bind="prod.MovieId" /></td>
+            </tr>
+        }            
+        
+        <tr>
+            <td>Movie Title</td>
+            <td>
+                <input class="form-control" @bind="prod.Title" />
+                <ValidationMessage For="@(() => prod.Title)" />
+            </td>
+        </tr>
+        <tr>
+            <td><label>Price</label></td>
+            <td>
+                <input class="form-control" @bind="prod.Price" />
+                <ValidationMessage For="@(() => prod.Price)" />    
+            </td>
+        </tr>
+        <tr>
+            <td><label>Genre</label></td>
+            <td>
+                <select class="form-control form-select" @bind="prod.Genre" @oninput="UpdateGenreId">
+                    @foreach (var gen in GenList)
+                    {
+                        <option value="@gen.GenreId">@gen.GenreName</option>
+                    }
+                </select>
+            </td>
+        </tr>
+        <tr>
+            <td><label>GenreId</label></td>
+            <td><label>@GetGenreId(prod.GenreId)</label></td>            
+        </tr>
+        <tr>
+            <td><label>Released Year</label></td>
+            <td>
+                <input class="form-control" @bind="prod.ReleasedYear" /> 
+                <ValidationMessage For="@(() => prod.ReleasedYear)" />
+            </td>
+        </tr>
+        <tr>
+            <td><label>Imdb Id</label></td>
+            <td>
+                <input class="form-control" @bind="prod.ImdbId" />
+                <ValidationMessage For="@(() => prod.ImdbId)" />
+            </td>
+        </tr>
+        <tr>
+            <td><label>Tmdb Id</label></td>
+            <td>
+                <input class="form-control" @bind="prod.TmdbId" />
+                <ValidationMessage For="@(() => prod.TmdbId)" />
+            </td>
+        </tr>
+        <tr>
+            <td></td>
+            <td>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" @bind="prod.OnSale">
+                    <label class="form-check-label">On Sale</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" @bind="prod.OutOfStock">
+                    <label class="form-check-label">Out Of Stock</label>
+                </div>
+            </td>
+        </tr>
+        @*<tr>
+            <td></td>
+            <td>
+                <input class="form-check-input" type="checkbox" @bind="prod.OnSale" >
+                <label class="form-check-input"> OnSale </label>
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+
+                <input class="form-check-input" type="checkbox" @bind="prod.OutOfStock">
+                <label class="form-check-input"> OutOfStock </label>
+                <br />
+
+            </td>
+        </tr>*@
+        <tr>
+            <td>Load Product Image File</td>
+            <td><InputFile style="background-color:aqua" OnChange="InputFileChange" /></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td><button type="submit" class="btn btn-primary">@ButtonText</button></td>
+        </tr>
+    </table>
+</EditForm>
+
+@code {
+    [Parameter]
+    public IBrowserFile SelectedFile { get; set; }
+    [Parameter]
+    public Movie prod { get; set; }
+    [Parameter]
+    public List<Genre>GenList { get; set; }
+    [Parameter]
+    public string ButtonText { get; set; } = "Update";
+    [Parameter]
+    public bool ShowIdTextBox { get; set; } = true;
+    [Parameter]
+    public EventCallback<IBrowserFile>OnFormSubmitted { get; set; }
+    
+    private void InputFileChange(InputFileChangeEventArgs e)
+    {
+        SelectedFile = e.File;
+    }
+
+    void UpdateGenreId(ChangeEventArgs e)
+    {
+        prod.GenreId = int.Parse(e.Value.ToString());
+    }
+
+    string GetGenreId(int genreId)
+    {
+        var selectedGenre = GenList.FirstOrDefault(gen => gen.GenreId == genreId);
+        return selectedGenre?.GenreId.ToString() ?? "";
+    }
+    
+
+    async Task SubmitForm()
+    {
+        await OnFormSubmitted.InvokeAsync(SelectedFile);
+    }
+
+
+}   

@@ -1,0 +1,56 @@
+﻿@page "/addrole"
+@attribute [Authorize(Roles = "Admin, Manager")]
+@using Microsoft.AspNetCore.Identity
+@inject RoleManager<IdentityRole> roleManager
+
+<h3>AddRole</h3>
+<div class="dropdown">
+    <select @onchange="OnRoleSelect">
+        <option value="">Select a role</option>
+        <option value="Admin">Admin</option>
+        <option value="Customer">Customer</option>
+        <option value="Manager">Manager</option>
+    </select>
+</div>
+<p>@Msg</p>
+
+@code {
+    string? Msg;
+    string selectedRole;
+
+    protected async override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            StateHasChanged();
+        }
+    }
+
+    protected async Task OnRoleSelect(ChangeEventArgs e)
+    {
+        selectedRole = e.Value.ToString();
+
+        if (!string.IsNullOrEmpty(selectedRole))
+        {
+            if (!await roleManager.RoleExistsAsync(selectedRole))
+            {
+                var roleResult = await roleManager.CreateAsync(new IdentityRole
+                    {
+                        Name = selectedRole
+                    });
+
+                if (roleResult.Succeeded == true)
+                    Msg = selectedRole + " role added";
+                else
+                    Msg = "Problem in creating " + selectedRole + " role";
+            }
+            else
+                Msg = selectedRole + " role already exists";
+        }
+        else
+        {
+            Msg = "Please select a role";
+        }
+        StateHasChanged();
+    }
+}

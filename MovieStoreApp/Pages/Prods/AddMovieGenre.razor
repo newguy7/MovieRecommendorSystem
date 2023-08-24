@@ -1,0 +1,46 @@
+﻿@page "/addgenre"
+@attribute [Authorize(Roles = "Admin, Manager")]
+@using Microsoft.EntityFrameworkCore
+@using MovieStoreApp.Models
+@using MovieStoreApp.Repositories
+@inject MoviesAppDbContext context
+@inject NavigationManager uriHelper
+@inject IJSRuntime js
+
+<br />
+<h2 class="fw-bold  mt-2">Add Movie Genre</h2>
+<br />
+<EditForm Model="@movGenre" OnValidSubmit="@SubmitForm">    
+    <table class="col-md-5">
+        <tr>
+            <td>Genre Name</td>
+            <td>
+                <input class="form-control" @bind="movGenre.GenreName" />
+            </td>
+        </tr>        
+        
+        <tr>
+            <td></td>
+            <td><button type="submit" class="btn btn-primary">Add Genre</button></td>
+        </tr>
+    </table>
+</EditForm>
+<p>@Msg</p>
+
+@code {
+    Genre movGenre = new Genre();
+    string Msg;    
+
+
+    void SubmitForm()
+    {
+        MovieStoreAppRepositoryEF rep = new MovieStoreAppRepositoryEF(context);
+        bool res = rep.AddMovieGenre(movGenre);
+        if (res == true)
+            Msg = movGenre.GenreName + " genre successfully added";
+    }
+
+
+
+}
+

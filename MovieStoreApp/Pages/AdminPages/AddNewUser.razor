@@ -1,0 +1,56 @@
+﻿@page "/adminpages/newuser"
+@attribute [Authorize(Roles = "Admin, Manager")]
+@using MovieStoreApp.Models
+@using Microsoft.EntityFrameworkCore;
+@using Microsoft.AspNetCore.Identity
+@inject MoviesAppDbContext MContext
+@inject NavigationManager uriHelper
+@inject IJSRuntime js
+@inject RoleManager<IdentityRole> roleManager
+@inject UserManager<IdentityUser> userManager
+
+
+
+<h3>Add New User</h3>
+<EditUserForm ButtonText="Create User" userroles="usrrol"
+              ShowIdTextBox="false" OnValidSubmit="@CreateUser" />
+<br />
+<p>@Msg</p>
+
+@code {
+    string? Msg;
+    UserRolesModel usrrol = new UserRolesModel();
+
+    protected override void OnInitialized()
+    {
+        var allRoles = MContext.AspNetRoles.ToList();
+        usrrol.Roles = new List<RoleInfo>();
+        foreach (var role in allRoles) //populate all roles
+        {
+            usrrol.Roles.Add(new RoleInfo { InRole = false, Name = role.Name });
+        }
+    }
+
+    async Task CreateUser()
+    {
+        var user = new IdentityUser();
+        user.UserName = usrrol.Email;
+        user.Email = usrrol.Email;
+        user.EmailConfirmed = true;
+        string userPWD = usrrol.Password;
+        IdentityResult chkUser = await userManager.CreateAsync(user, userPWD);
+        if (chkUser.Succeeded)
+        {
+            foreach (var role in usrrol.Roles)
+            {
+                if (role.InRole == true)
+                {
+                    var result = await userManager.AddToRoleAsync(user, role.Name);
+                }
+            }
+            Msg = "User created successfully..";
+        }
+        else
+            Msg = "User creation problem..";
+    }
+}

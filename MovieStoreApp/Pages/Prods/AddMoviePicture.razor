@@ -1,0 +1,94 @@
+﻿@page "/addmoviepic"
+@using Microsoft.EntityFrameworkCore;
+@using MovieStoreApp.Models
+@using MovieStoreApp.Repositories
+@using MovieStoreApp.ModelsVM
+@using MovieStoreApp.ModelsDTO
+@using Newtonsoft.Json;
+@using OfficeOpenXml;
+@inject MoviesAppDbContext context
+<br />
+<h3>Add Movie Picture</h3>
+<EditForm Model="@MoviePic" OnValidSubmit="@SubmitForm">
+<table class="col-md-5">
+    <tr>
+        <td>Movie Id</td>
+        <td><input class="form-control" @bind="MoviePic.MovieId" />
+        </td>
+    </tr>
+    <tr>
+        <td>Load Movie Image File</td>
+        <td><InputFile OnChange="InputFileChange"/></td>
+    </tr>
+    <tr>
+        <td></td>
+        <td><button type="submit" class="btn btn-primary">Add Movie Picture</button>
+        </td>
+    </tr>
+
+    
+</table>
+</EditForm>
+<p>@Msg</p>
+
+@code {
+    string? Msg;
+    public IBrowserFile SelectedFile { get; set; }
+    
+    public MoviePicture MoviePic { get; set; }
+
+    private readonly string _tmdbApiKey = "4d211759108373f2af45a56063922d02";
+    private readonly HttpClient _httpClient = new HttpClient();
+    private const string BASE_TMDB_URL = "https://api.themoviedb.org/3/movie/";
+    
+
+    private void InputFileChange(InputFileChangeEventArgs e)
+    {
+        SelectedFile = e.GetMultipleFiles()[0];
+    }
+    
+
+    protected override void OnInitialized()
+    {
+        MoviePic = new MoviePicture();
+    }
+    
+
+
+    async void SubmitForm()
+    {
+        try
+
+        {            
+            if (SelectedFile != null)
+            {
+                Movie movie;
+                Stream stream = SelectedFile.OpenReadStream();
+                MemoryStream ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                stream.Close();
+                byte[] picdata = ms.ToArray();
+                MoviePic.Picture = ms.ToArray();
+                MoviePic.PictureDate = DateTime.Now;
+                ms.Close();
+                MovieStoreAppRepositoryEF rep = new MovieStoreAppRepositoryEF(context);
+                bool res = rep.AddMoviePicture(MoviePic);
+                Msg = "Picture Added..";
+                StateHasChanged();
+            }
+            
+            else
+            {
+                Msg = "No file provided!";
+            }            
+
+        }
+        catch (Exception ex)
+        {
+            Msg = "Problem in adding picture";
+            Console.WriteLine(ex.Message);
+        }
+    }
+
+
+}

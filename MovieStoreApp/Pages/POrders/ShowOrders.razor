@@ -1,0 +1,53 @@
+﻿@page "/showorders"
+@using Microsoft.EntityFrameworkCore
+@using System.Linq
+@using MovieStoreApp.Models
+@using MovieStoreApp.ModelsDTO
+@using MovieStoreApp.Repositories
+@inject MoviesAppDbContext context
+@inject DialogService dialogService
+<HxBreadcrumb />
+
+<h3><strong>Customer Orders</strong></h3>
+<button @onclick="ResetSearch">Reset Search</button>
+<RadzenDataGrid @ref="ordersGrid" AllowFiltering="true" AllowPaging="true" 
+    PageSize="5" AllowSorting="true" 
+    Data="@orders" TItem="OrderDTO">
+    <Columns>
+        <RadzenDataGridColumn TItem="OrderDTO" Property="OrderDate" Title="Order Date" FormatString="{0:d}" />
+        <RadzenDataGridColumn TItem="OrderDTO" Property="UserId" Title="Customer Id" FormatString="{0:d}" />
+        <RadzenDataGridColumn TItem="OrderDTO" Property="FirstName" Title="First Name" FormatString="{0:d}" />
+        <RadzenDataGridColumn TItem="OrderDTO" Property="LastName" Title="Last Name" FormatString="{0:d}" />
+        <RadzenDataGridColumn TItem="OrderDTO" Property="Telephone" Title="Telephone" FormatString="{0:d}" />
+        <RadzenDataGridColumn Width="160px" TItem="OrderDTO" Property="OrderID" Title="Order Details">
+            <Template Context="data">
+                <RadzenButton ButtonStyle="ButtonStyle.Info" Icon="info" 
+                class="m-1" Click=@(() => OpenOrder(data.OrderID)) Text="@data.OrderID.ToString()" />
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    RadzenDataGrid<OrderDTO> ordersGrid;
+    IList<OrderDTO> orders;
+
+    async Task OpenOrder(int orderId)
+    {
+        await dialogService.OpenAsync<OrderCardPage>($"Order {orderId}",
+        new Dictionary<string, object>() { { "OrderID", orderId } },
+        new DialogOptions() { Width = "800px", Height = "600px" });
+    }
+
+    protected override void OnInitialized()
+    {
+        MovieStoreAppRepositoryEF rep = new MovieStoreAppRepositoryEF(context);
+        orders = rep.GetAllOrders();
+    }
+
+    void ResetSearch()
+    {        
+        ordersGrid.Reset();        
+        StateHasChanged();
+    }
+}

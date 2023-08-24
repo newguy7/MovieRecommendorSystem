@@ -1,0 +1,82 @@
+﻿@page "/edituser/edit/{userid}"
+@attribute [Authorize(Roles = "Admin, Manager")]
+@using MovieStoreApp.Models
+@using Microsoft.EntityFrameworkCore; @*needed for .Include in DbContext*@
+@inject MoviesAppDbContext MContext
+@inject NavigationManager uriHelper
+@inject IJSRuntime js
+@using Microsoft.AspNetCore.Identity
+@inject RoleManager<IdentityRole> roleManager
+@inject UserManager<IdentityUser> userManager
+
+<h3>Edit User</h3>
+<EditUserForm ButtonText="Update" userroles="usrrol" OnValidSubmit="@EditUserRoles" />
+<br />
+<p>@Msg</p>
+
+@code {
+    [Parameter] public string? userid { get; set; } = "";
+    UserRolesModel usrrol = new UserRolesModel();
+    string? Msg;
+
+    protected async override Task OnParametersSetAsync()
+    {
+        Msg = "";
+        var user = MContext.AspNetUsers.Include(u => u.Roles).Where(u => u.Id == userid).FirstOrDefault<AspNetUser>();
+        var allRoles = MContext.AspNetRoles.ToList();
+        usrrol.Roles = new List<RoleInfo>();
+        if (user != null)
+        {
+            usrrol.Email = user.Email;
+            usrrol.Id = user.Id;
+            foreach (var role in allRoles) //populate all roles
+            {
+                List<AspNetRole> userRoles = user.Roles.ToList();
+                string roles = "";
+                bool found = false;
+                foreach (var urole in userRoles)
+                {
+                    if (role.Name == urole.Name)
+                    {
+                        usrrol.Roles.Add(new RoleInfo { InRole = true, Name = role.Name });
+                        found = true;
+                    }
+                }
+                if (found == false)
+                    usrrol.Roles.Add(new RoleInfo { InRole = false, Name = role.Name });
+            }
+        }
+    }
+
+    async Task EditUserRoles()
+    {
+        //usrrol contains updated info
+        UserRolesModel usrm = usrrol;
+        var userIden = await userManager.FindByIdAsync(usrrol.Id);
+        if (userIden != null)
+        {
+            var res = await userManager.RemoveFromRolesAsync(userIden, await userManager.GetRolesAsync(userIden));
+            var res2 = await userManager.RemovePasswordAsync(userIden);
+            var res3 = await userManager.AddPasswordAsync(userIden, usrrol.Password);
+            if (res3.Succeeded)
+            {
+                userIden.UserName = usrrol.Email;
+                userIden.Email = usrrol.Email;
+                userIden.EmailConfirmed = true;
+                IdentityResult chkUser = await userManager.UpdateAsync(userIden);
+                if (chkUser.Succeeded == true)
+                {
+                    //add roles to user
+                    foreach (var role in usrrol.Roles)
+                    {
+                        if (role.InRole == true)
+                        {
+                            var result = await userManager.AddToRoleAsync(userIden, role.Name);
+                        }
+                    }
+                }
+            }
+            Msg = "User updated..";
+        }
+    }
+}

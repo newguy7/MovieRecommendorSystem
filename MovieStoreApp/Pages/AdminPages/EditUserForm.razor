@@ -1,0 +1,63 @@
+﻿<EditForm Model="@userroles" OnValidSubmit="@OnValidSubmit">
+    <DataAnnotationsValidator />
+    @if (ShowIdTextBox)
+    {
+        <div class="form-group">
+            <label>Id :</label>
+            <div>
+                <InputText @bind-Value="@userroles.Id" />
+                <ValidationMessage For="@(() => userroles.Id)" />
+            </div>
+        </div>
+    }
+    <div class="form-group">
+        <label>Email :</label>
+        <div>
+            <InputText @bind-Value="@userroles.Email" />
+            <ValidationMessage For="@(() => userroles.Email)" />
+        </div>
+    </div>
+    <div class="form-group">
+        <div>
+            <label>Password :</label>
+            <div>
+                <InputText @bind-Value="@userroles.Password" />
+                <ValidationMessage For="@(() => userroles.Password)" />
+            </div>
+        </div>
+    </div>
+    <div class="form-group">
+        <div>
+            <label>Confirm Password :</label>
+            <div>
+                <InputText @bind-Value="@userroles.ConfirmPassword" />
+                <ValidationMessage For="@(() => userroles.ConfirmPassword)" />
+            </div>
+        </div>
+    </div>
+    <div class="form-group">
+        <div>
+            <label>Roles :</label>
+            @foreach (var role in userroles.Roles)
+            {
+                <div>
+                    <InputCheckbox @bind-Value="role.InRole" /> @role.Name
+                </div>
+            }
+        </div>
+    </div>
+    <button type="submit" class="btn btn-success">
+        @ButtonText
+    </button>
+</EditForm>
+
+@code {
+    [Parameter]
+    public UserRolesModel userroles { get; set; }
+    [Parameter]
+    public string ButtonText { get; set; }
+    [Parameter]
+    public bool ShowIdTextBox { get; set; }
+    [Parameter]
+    public EventCallback OnValidSubmit { get; set; }
+}

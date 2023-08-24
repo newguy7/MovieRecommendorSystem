@@ -1,0 +1,98 @@
+﻿@page "/addcustomerratings"
+@using Microsoft.EntityFrameworkCore
+@using MovieStoreApp.Models
+@using MovieStoreApp.Repositories
+@using OfficeOpenXml;
+@inject MoviesAppDbContext context
+@inject NavigationManager uriHelper
+@inject IJSRuntime js
+
+<h3>Bulk Add Customer Ratings</h3>
+
+<InputFile OnChange="HandleFileSelection" accept=".xlsx" maxFileSize="10048576" />
+
+<button @onclick="BulkAddCustomerRatings">Add Bulk Customer Ratings</button>
+
+<p>@Msg</p>
+
+
+@code {
+    private string Msg = "";
+    private IBrowserFile selectedFile;
+
+    private void HandleFileSelection(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+    }
+
+    private async Task BulkAddCustomerRatings()
+    {
+        if (selectedFile != null)
+        {
+            await BulkAddCustomerRatingsFromExcel(selectedFile);
+        }
+    }
+
+    public async Task BulkAddCustomerRatingsFromExcel(IBrowserFile excelFile)
+    {
+        try
+        {
+            using (var memoryStream = new MemoryStream())
+            {
+                await excelFile.OpenReadStream().CopyToAsync(memoryStream);
+                memoryStream.Position = 0;
+
+                using (var package = new ExcelPackage(memoryStream))
+                {
+                    var worksheet = package.Workbook.Worksheets[0];
+                    int rowCount = worksheet.Dimension.Rows;
+                    int colCount = worksheet.Dimension.Columns;
+
+                    List<CustomerRating> customerRatingsToAdd = new List<CustomerRating>();
+
+                    using (var context = new MoviesAppDbContext()) 
+                    {
+                        MovieStoreAppRepositoryEF rep = new MovieStoreAppRepositoryEF(context);
+
+                        var existingUserIds = context.Customers.Select(c => c.UserId).ToList();
+                        var existingMovieIds = context.Movies.Select(m => m.MovieId).ToList();
+
+                        for (int row = 2; row <= rowCount; row++) // Assuming data starts from the second row
+                        {
+                            int userId = Convert.ToInt32(worksheet.Cells[row, 1].Value);
+                            int movieId = Convert.ToInt32(worksheet.Cells[row, 2].Value);
+                            int rating = Convert.ToInt32(worksheet.Cells[row, 3].Value);
+
+                            if (existingUserIds.Contains(userId) && existingMovieIds.Contains(movieId))
+                            {
+                                CustomerRating customerRating = new CustomerRating
+                                    {
+                                        UserId = userId,
+                                        MovieId = movieId,
+                                        Rating = rating
+                                    };
+
+                                customerRatingsToAdd.Add(customerRating);
+                            }
+                        }
+
+                        if (customerRatingsToAdd.Count > 0)
+                        {
+                            await rep.AddBulkCustomerRatings(customerRatingsToAdd);
+                            Msg = $"{customerRatingsToAdd.Count} customer ratings added successfully.";
+                        }
+                        else
+                        {
+                            Msg = "No new customer ratings found to add.";
+                        }
+                    }
+                }
+            }
+        }
+        catch (FormatException ex)
+        {
+            Msg = "Error adding customer ratings: " + ex.Message;
+        }
+    }
+
+}

@@ -1,0 +1,84 @@
+﻿@page "/addadminuser"
+@attribute [Authorize(Roles = "Admin, Manager")]
+@using Microsoft.AspNetCore.Identity
+@inject RoleManager<IdentityRole> roleManager
+@inject UserManager<IdentityUser> userManager
+
+<h3>Add New Admin</h3>
+<br />
+
+<table class="col-md-5">
+    <tr>
+        <td><label>Username:</label></td>
+        <td>
+            <input class="form-control" @bind="username" type="text" placeholder="Enter username" />
+        </td>
+    </tr>
+    <tr>
+        <td><label>Email:</label></td>
+        <td>
+            <input class="form-control" @bind="email" type="email" placeholder="Enter email" />
+        </td>
+    </tr>
+    <tr>
+        <td><label>Password:</label></td>
+        <td>
+            <input class="form-control" @bind="password" type="password" placeholder="Enter password" />
+        </td>
+    </tr>
+    <tr>
+        <td><label>Confirm Password:</label></td>
+        <td>
+            <input class="form-control" @bind="confirmPassword" type="password" placeholder="Confirm password" />
+        </td>
+    </tr>
+
+    <tr>
+        <td></td>
+        <td><button type="submit" class="btn btn-primary" @onclick="AddNewAdmin">Add Admin User</button></td>
+    </tr>
+
+
+</table>
+
+<br />
+<p>@Msg</p>
+
+@code {
+    string? Msg;
+    string username = string.Empty;
+    string email = string.Empty;
+    string password = string.Empty;
+    string confirmPassword = string.Empty;
+
+    private async Task AddNewAdmin()
+    {
+        if (password != confirmPassword)
+        {
+            Msg = "Passwords do not match";
+        }
+        else
+        {
+            var user = new IdentityUser();
+            user.UserName = username;
+            user.Email = email;
+            user.EmailConfirmed = true;
+            string userPWD = password;
+
+            IdentityResult chkUser = await userManager.CreateAsync(user, userPWD);
+
+            if (chkUser.Succeeded)
+            {
+                var result = await userManager.AddToRoleAsync(user, "Manager");
+                if (result.Succeeded == true)
+                    Msg = "User added to Admin Role";
+                else
+                    Msg = "User could not be added to admin role";
+            }
+            else
+                Msg = "User creation problem";
+        }
+
+        StateHasChanged();
+    }
+}

@@ -1,0 +1,31 @@
+﻿@page "/deleterole"
+@attribute [Authorize(Roles = "Admin, Manager")]
+@using Microsoft.AspNetCore.Identity
+@inject RoleManager<IdentityRole> roleManager
+<h3>Delete Role</h3>
+<p>@Msg</p>
+
+@code {
+    string? Msg;
+
+    protected async override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            string roleName = "Admin";
+            if (await roleManager.RoleExistsAsync(roleName))
+            {
+                var role = await roleManager.FindByNameAsync(roleName);
+                var roleresult = await roleManager.DeleteAsync(role);
+                if (roleresult.Succeeded == true)
+
+                    Msg = roleName + " role deleted";
+                else
+                    Msg = "Problem in deleting " + roleName + " Role";
+            }
+            else
+                Msg = roleName + " role does not Exist";
+            StateHasChanged();
+        }
+    }
+}

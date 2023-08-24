@@ -1,0 +1,60 @@
+﻿@page "/home"
+@using Microsoft.EntityFrameworkCore;
+@using MovieStoreApp.Models
+@using MovieStoreApp.ModelsVM;
+@using Newtonsoft.Json
+@using System.Collections.Concurrent;
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ProtectedSessionStorage sessionStore
+@inject MoviesAppDbContext context
+@inject NavigationManager uriHelper
+
+
+<div class="container">
+    @if (UserEmail != null)
+
+    {
+
+        uriHelper.NavigateTo($"/showmovies");
+        
+        
+    }
+    else
+
+    {
+        uriHelper.NavigateTo($"/");
+        
+    }
+    
+</div>
+
+
+@code {
+    string UserEmail = string.Empty;
+    
+    List<Movie> RecommendedMovies = new List<Movie>();
+    private const int BatchSize = 1000;  // Number of movies to process in each batch
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var userEmailResult = await sessionStore.GetAsync<string>("USEREMAIL");
+
+            if (userEmailResult.Success)
+            {
+                UserEmail = userEmailResult.Value;
+                
+                //StateHasChanged();
+            }
+            else
+            {
+                Console.WriteLine("Failed to retrieve user Email from session.");  // log error
+            }
+        }
+    }   
+
+    
+}

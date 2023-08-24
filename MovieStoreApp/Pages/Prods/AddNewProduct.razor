@@ -1,0 +1,60 @@
+﻿@page "/addnewmovie"
+
+@using Microsoft.EntityFrameworkCore
+@using MovieStoreApp.Models
+@using MovieStoreApp.Repositories
+@inject MoviesAppDbContext context
+@inject NavigationManager uriHelper
+@inject IJSRuntime js
+
+<br/>
+<h3>Add New Movie</h3>
+<AddOrEditProduct ButtonText="Add New Movie" prod="prodct"
+    GenList="GList" OnFormSubmitted="@AddMovie" ShowIdTextBox="true" />
+<br/>
+<p>@Msg</p>
+
+@code {
+    [Parameter] public string movid { get; set; }
+    Movie prodct = new Movie() { GenreId =1};
+
+    List<Genre> GList = new List<Genre>();
+    string? Msg;
+
+    protected override async Task OnInitializedAsync()
+    {
+        GList = await context.Genres.ToListAsync<Genre>();
+    }
+
+    async void AddMovie(IBrowserFile file)
+    {
+        try
+        {
+            // prodct contains updated info, write to DB
+            context.Movies.Add(prodct);
+            Stream stream = file.OpenReadStream();
+            MemoryStream ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            stream.Close();
+            byte[] picdata = ms.ToArray();
+            ms.Close();
+            MovieStoreAppRepositoryEF rep = new MovieStoreAppRepositoryEF(context);
+
+            // Assign the selected genre to the prodct object
+            Genre selectedGenre = GList.FirstOrDefault(gen => gen.GenreId == prodct.GenreId);
+            prodct.Genre = selectedGenre?.GenreName;
+
+            bool res = rep.AddMovieAndPicture(prodct, picdata);
+            Msg = "Movie added..";
+
+            // Clear the form by resetting prodct to its initial state
+            prodct = new Movie() { GenreId = 1 };
+
+
+        }
+        catch (Exception ex)
+        {
+            Msg = "Problem in adding movie";
+        }
+    }
+}

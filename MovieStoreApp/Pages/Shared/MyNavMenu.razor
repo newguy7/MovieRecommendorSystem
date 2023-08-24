@@ -1,0 +1,85 @@
+﻿@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+@inject ProtectedSessionStorage sessionStore
+@inject NavigationManager uriManager
+@inject AuthenticationStateProvider AuthenticationStateProvider //added
+
+<!--https://havit.blazor.eu/components/HxNavbar-->
+<HxNavbar ColorMode="ColorMode.Dark" Color="ThemeColor.Warning">
+    <HxNavbarBrand>The Movie Store</HxNavbarBrand>
+    <HxNavbarToggler/>
+    <HxNavbarCollapse>
+        <HxNav CssClass="me-auto mb-2 mb-lg-0">
+            <HxNavLink Href="">Home</HxNavLink>            
+            <HxNavLink Href="/showorders">Orders</HxNavLink>
+            <HxDropdown>
+                <HxDropdownToggleElement ElementName="a" Caret="true" 
+                    role="button">Movies</HxDropdownToggleElement>
+                <HxDropdownMenu>
+                    <HxDropdownItemNavLink Href="addmoviepic">Add Picture</HxDropdownItemNavLink>
+                    <HxDropdownItemNavLink Href="addnewmovie">Add Movie</HxDropdownItemNavLink>
+                    <HxDropdownItemNavLink Href="addbulkmovies">Bulk Add Movies</HxDropdownItemNavLink>
+                    <HxDropdownDivider />
+                    <HxDropdownItemNavLink Href="showmovies">Show Movies</HxDropdownItemNavLink>
+                </HxDropdownMenu>
+            </HxDropdown>
+            <HxNavLink Href="/viewcart">View Cart</HxNavLink>
+            <HxNavLink Href="/signup">Register</HxNavLink>
+            <HxNavLink Enabled="false">Disabled</HxNavLink>
+        </HxNav>
+        <EditForm Model="@query">
+            <div class="d-flex">
+                @if (!isUserLoggedIn)
+                {
+                    <HxSubmit Color="ThemeColor.Light" OnClick="Login" Outline="true" Style="background-color: red;">Sign In</HxSubmit>
+                }
+                
+                @*<HxSubmit Color="ThemeColor.Primary" OnClick="Login" Outline="true" Disabled="isUserLoggedIn" hidden="isUserLoggedIn">Sign In</HxSubmit>*@
+                @*<HxSubmit Color="ThemeColor.Primary" OnClick="Logout" Outline="true" Disabled="!isUserLoggedIn">Sign Out</HxSubmit>*@
+                <div style="width: 10px;"></div> 
+                <HxInputText CssClass="me-2" Placeholder="Search" @bind-Value="@query" />
+                <HxSubmit Color="ThemeColor.Success" Outline="true">Search</HxSubmit>
+            </div>           
+            
+        </EditForm>
+    </HxNavbarCollapse>
+</HxNavbar>
+
+
+
+@code {
+
+    private string query = String.Empty;   
+
+    private bool isUserLoggedIn = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var userLoginResult = await sessionStore.GetAsync<string>("USERLOGIN");
+            //isUserLoggedIn = userLoginResult.Value !=null && !string.IsNullOrEmpty(userLoginResult.Value);            
+            isUserLoggedIn = (await sessionStore.GetAsync<string>("USERLOGIN")).Value != null;
+            StateHasChanged();
+        }
+    }  
+       
+
+    async Task Login()
+    {
+        await sessionStore.DeleteAsync("USERINFO");
+        await sessionStore.DeleteAsync("USERID");
+        await sessionStore.DeleteAsync("USEREMAIL");
+        await sessionStore.DeleteAsync("USERLOGIN");
+        uriManager.NavigateTo("/login");
+    }
+
+    async Task Logout()
+    {
+        await sessionStore.DeleteAsync("USERINFO");
+        await sessionStore.DeleteAsync("USERID");
+        await sessionStore.DeleteAsync("USEREMAIL");
+        await sessionStore.DeleteAsync("USERLOGIN");
+        uriManager.NavigateTo("/login");
+    }
+    
+}

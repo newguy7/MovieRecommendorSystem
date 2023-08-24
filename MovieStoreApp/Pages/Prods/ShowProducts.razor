@@ -1,0 +1,362 @@
+﻿@page "/showmovies"
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Microsoft.EntityFrameworkCore
+@using Newtonsoft.Json
+@using MovieStoreApp.Models
+@using MovieStoreApp.ModelsDTO
+@using MovieStoreApp.ModelsVM
+@using MovieStoreApp.Repositories
+@using System.Collections.Concurrent;
+@using Microsoft.AspNetCore.Components.Authorization
+@inject MoviesAppDbContext context
+@inject IJSRuntime js
+@inject NavigationManager uriHelper
+@inject DialogService dialogService
+@inject ProtectedLocalStorage localStore
+@inject ProtectedSessionStorage sessionStore
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager uriManager
+
+
+<br />
+<h3>Movies Catalog</h3>
+
+<div class="row">
+    <div class="col-md-1">
+        <select class="form-select-sm" value="@initialddlgen" @onchange="GenSelected">
+            <option value="0"></option>
+            @foreach (var gen in GenList)
+            {
+                <option value="@gen.GenreId">@gen.GenreName</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-10 text-end">
+        <button @onclick="ResetSearch">Reset Search</button>
+        <RadzenDataGrid @ref="moviesGrid" AllowFiltering="true"
+            AllowPaging="true" PageSize="5" AllowSorting="true"
+            Data="@MList" TItem="MovieDTO">
+            <Columns>
+                <RadzenDataGridColumn TItem="MovieDTO" CssClass="text-start" Property="Title" Title="Movie Name" />
+                <RadzenDataGridColumn CssClass="text-center" TItem="MovieDTO" >                    
+                    <Template Context="data">     
+                        <RadzenImage Path="@data.MovieImage" style="width:40px; height: 40px; border-radius: 8px;" />
+                    </Template>    
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="MovieDTO" CssClass="text-start" Property="Price" Title="Price" FormatString="{0:c}" />
+                <RadzenDataGridColumn TItem="MovieDTO" CssClass="text-center" Property="OnSale" Title="OnSale">
+                    <Template Context="data">
+                        <RadzenCheckBox Value="data.OnSale" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn CssClass="text-center"  TItem="MovieDTO" Property="OutOfStock" Title="OutOfStock">
+                    <Template Context="data">
+                        <RadzenCheckBox Value="data.OutOfStock" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn CssClass="text-center" TItem="MovieDTO" Property="MovieId" Title="Details">
+                    <Template Context="data">
+                        <RadzenButton ButtonStyle="ButtonStyle.Info" Icon="info" class="m-1" Click=@(() => ShowDetail(data.MovieId)) Text="" />
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </div>
+
+    
+    <p></p>
+    <br />
+    <br />
+    <br />
+    
+    <div class="row">
+        <h2 style="text-align:center">Movies You May Like</h2>
+        @foreach (var movie in RecommendedMovies)
+        {
+
+            <div class="col-md-2-4" style="padding-bottom: 20px;">
+                <div class="card">                    
+                    <a @onclick="() => ShowDetail(movie.MovieId)" style="cursor:pointer;">
+                        <div class="card-body">                            
+                            <div class="poster-container">
+                                <img src="@posterImageUrls[movie.MovieId]" alt="Movie Poster" />
+                                @*<img src="@posterImageUrls[movie.MovieId]" alt="Movie Poster" />*@
+                            </div>                            
+                            
+                        </div>
+                    </a>
+                </div>
+            </div>
+
+        }
+    </div>
+    
+
+</div>
+<p>@Msg</p>
+
+@code {
+    RadzenDataGrid<MovieDTO> moviesGrid;
+    List<Genre> GenList = new List<Genre>();
+    List<MovieDTO> MList = new List<MovieDTO>();    
+    string? Msg;    
+    int initialddlgen;      
+
+    string UserEmail = string.Empty;
+    List<Movie> RecommendedMovies = new List<Movie>();
+
+    private HttpClient _httpClient = new HttpClient();
+    private const string TMDB_API_KEY = "4d211759108373f2af45a56063922d02"; 
+    Dictionary<int, string> posterImageUrls = new Dictionary<int, string>();
+
+    void GenSelected(ChangeEventArgs ce)
+    {
+        int genSelected = int.Parse(ce.Value.ToString());
+        MovieStoreAppRepositoryEF rep = new MovieStoreAppRepositoryEF(context);
+        //MList = rep.GetMoviesByGenre(genSelected);
+        if (genSelected == 0)
+        {
+            MList = rep.GetAllMovies();
+        }
+        else
+        {
+            MList = rep.GetMoviesByGenre(genSelected);
+        }
+    }
+
+    
+
+    protected override async Task OnInitializedAsync()
+    {
+        GenList = await context.Genres.ToListAsync<Genre>();
+        MovieStoreAppRepositoryEF rep = new MovieStoreAppRepositoryEF(context); //added
+        MList = rep.GetAllMovies(); //added
+        //await base.OnInitializedAsync(); 
+
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var userEmailResult = await sessionStore.GetAsync<string>("USEREMAIL");
+
+            if (userEmailResult.Success)
+            {
+                UserEmail = userEmailResult.Value;
+                var userIdResult = await sessionStore.GetAsync<int>("USERID");
+
+                if (userIdResult.Success)
+                {
+                    var userId = userIdResult.Value;
+                    RecommendedMovies = await RecommendMoviesForUser(userId);
+                }
+                else
+                {
+                    Msg = "Failed to retrieve user Email from session.";
+                }
+
+                StateHasChanged();
+            }
+            else
+            {
+                Msg = "Failed to retrieve user Email from session.";
+                uriManager.NavigateTo("login");
+
+            }
+        }
+            
+    }    
+
+    private async Task<string> GetMoviePosterURL(int tmdbId)
+    {
+        string apiUrl = $"https://api.themoviedb.org/3/movie/{tmdbId}?api_key={TMDB_API_KEY}&language=en-US";
+        var response = await _httpClient.GetStringAsync(apiUrl);
+        dynamic movieData = JsonConvert.DeserializeObject(response);
+        return "https://image.tmdb.org/t/p/w500" + movieData.poster_path;
+    }   
+
+
+    async Task ShowDetail(int movieId)
+    {  
+        string posterUrl = string.Empty;
+        MovieStoreAppRepositoryEF rep1 = new MovieStoreAppRepositoryEF(context);
+        
+        try
+        {
+            // Step 1: Get the tmdbId using the movieId
+            int? tmdbId = await rep1.GetTmdbIdByMovieId(movieId);
+
+            // Step 2: Check if tmdbId is valid
+            if (tmdbId.HasValue)
+            {
+                // Step 3: Fetch the poster URL using the tmdbId
+                posterUrl = await GetMoviePosterURL(tmdbId.Value);
+            }
+            else
+            {
+                Console.Error.WriteLine($"TMDB ID for movie {movieId} not found.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to fetch poster for movie {movieId}: {ex.Message}");
+            
+        }        
+
+        // Open the dialog
+        var parameters = new Dictionary<string, object>
+        {
+            { "MovieID", movieId },
+            { "PosterUrl", posterUrl }  // Pass the poster URL to the dialog
+        };
+
+        var res = await dialogService.OpenAsync<ProductCardPage>($"Movie {movieId}", parameters,
+            new DialogOptions() { Width = "800px", Height = "550px" });
+        
+
+        if (res > 0) // quantity added to cart
+        {
+            MovieStoreAppRepositoryEF rep = new MovieStoreAppRepositoryEF(context);
+            var movie = rep.GetMovieById(movieId);
+            if (movie == null)
+            {
+                Console.Error.WriteLine($"Movie with ID {movieId} not found.");
+                return;
+            }
+            CartItem item = new CartItem
+                {
+                    MovieId = movieId,
+                    Title = movie.Title,
+                    Price = (double)movie.Price,
+                    Quantity = res
+                };
+            AddItemToCart(item);
+        }
+    }    
+
+    void ResetSearch()
+    {
+        // Refresh the grid        
+        moviesGrid.Reset();
+        StateHasChanged();
+    }
+
+    protected string GetImageFromBytes(byte[]? image)
+    {
+        if (image != null)
+        {
+            
+            return $"data:image/png;base64, {Convert.ToBase64String(image)}";
+            
+        }
+        else
+        {
+            return string.Empty;
+        }
+    }
+    
+
+    async void AddItemToCart(CartItem item)
+    {
+        // if cart is empty, create cart
+        var json = await localStore.GetAsync<string>("MYCART");
+        if (json.Value != null)
+        {
+            string jsonstr = json.Value;
+            List<CartItem> CList = JsonConvert.DeserializeObject<List<CartItem>>(jsonstr);
+            var itemInCart = CList.Where(c => c.MovieId == item.MovieId).FirstOrDefault<CartItem>();
+            if (itemInCart!= null)
+                itemInCart.Quantity = itemInCart.Quantity + item.Quantity;
+            else
+                CList.Add(item);
+            string jsonc = JsonConvert.SerializeObject(CList);
+            localStore.SetAsync("MYCART", jsonc);
+        }
+        else
+        {
+            List<CartItem> CList = new List<CartItem>();
+            CList.Add(item);
+            string jsonc = JsonConvert.SerializeObject(CList);
+            localStore.SetAsync("MYCART", jsonc);
+        }
+        
+    }
+
+
+    private async Task<List<Movie>> RecommendMoviesForUser(int userId)
+    {
+        var userRatings = context.CustomerRatings.Where(ur => ur.UserId == userId).ToList();
+        var ratedMovieIds = userRatings.Select(ur => ur.MovieId).ToHashSet();
+
+        //ConcurrentBag is used to safely store the results from each thread
+        var predictedRatings = new ConcurrentBag<(float rating, Movie movie)>();
+
+        var movieCount = await context.Movies.CountAsync();
+
+        for (int i = 0; i < movieCount; i += BatchSize)
+        {
+            var movies = await context.Movies
+            .Where(m => !ratedMovieIds.Contains(m.MovieId)) // filter out already rated movies
+            .Skip(i).Take(BatchSize).ToListAsync();
+
+            //Parallel.ForEach is used in order to execute iterations of 
+            // the loop concurrently on multiple processor cores
+            //Parallel.ForEach(unratedMovies, movie =>
+            Parallel.ForEach(movies, movie =>
+            {
+                var sampleData = new MovieRecommendor.ModelInput()
+                    {
+                        UserId = (int)userId,
+                        MovieId = (int)movie.MovieId,
+                    };
+
+                try
+                {
+                    var prediction = MovieRecommendor.Predict(sampleData);
+                    predictedRatings.Add((prediction.Rating, movie));
+                    //Console.WriteLine($"Predicted rating for movie {movie.MovieId}: {prediction.Rating}");  // log predicted rating
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Failed to predict rating for movie {movie.MovieId}: {ex.Message}");  // log error
+                }
+            });
+        }
+        
+        var recommendedMovies = predictedRatings
+        .OrderByDescending(pr => pr.rating)
+        .Take(10)
+        .Select(pr => pr.movie)
+        .ToList();
+        // log recommended movies
+        Console.WriteLine($"Recommended movies: {string.Join(", ", recommendedMovies.Select(m => m.MovieId))}");  
+
+        var recommendedMovieIds = recommendedMovies.Select(m => m.MovieId).ToList();
+
+        // Fetch the pictures for the recommended movies
+        var moviePictures = context.MoviePictures
+            .Where(mp => recommendedMovieIds.Contains(mp.MovieId))
+            .ToList();
+        
+        foreach (var movie in recommendedMovies)
+        {
+            MovieStoreAppRepositoryEF rep1 = new MovieStoreAppRepositoryEF(context);
+            try
+            {
+                int? tmdbId = await rep1.GetTmdbIdByMovieId(movie.MovieId);
+                var posterUrl = await GetMoviePosterURL((int)tmdbId);
+                posterImageUrls[movie.MovieId] = posterUrl;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Failed to fetch poster for movie {movie.MovieId}: {ex.Message}");                                                                                                             
+                                                                                                             
+            }
+        }
+
+        return recommendedMovies;
+    }
+    // Number of movies to process in each batch
+    private const int BatchSize = 1000;  
+    
+}

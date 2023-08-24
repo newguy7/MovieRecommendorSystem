@@ -1,0 +1,88 @@
+﻿@page "/viewcart"
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Newtonsoft.Json
+@using MovieStoreApp.ModelsVM
+@inject ProtectedSessionStorage sessionStore
+@inject ProtectedLocalStorage LocalStore
+@inject NavigationManager uriManager
+@inject ProtectedSessionStorage SessionStore
+
+<br />
+<ShoppingCart MyCart="CList" OnShoppingCartChanged="CartChanged"/>
+<br/>
+<button @onclick="CheckOut">Checkout</button>
+<br/>
+<p>@Msg</p>
+
+@code {
+    List<CartItem> CList;
+    UserInfo uinfo;
+    string Msg;
+
+
+    protected async override void OnInitialized()
+    {
+        //see if user is logged in
+        var json = await SessionStore.GetAsync<string>("USERINFO");
+        var jsonstr = json.Value;
+        if (jsonstr == null)
+        {
+            uriManager.NavigateTo("login");
+        }
+
+        json = await LocalStore.GetAsync<string>("MYCART");
+        jsonstr = json.Value;
+        if (jsonstr != null)
+        {
+            CList = JsonConvert.DeserializeObject<List<CartItem>>(jsonstr);
+        }
+
+        else
+        {            
+            CList = new List<CartItem>();
+            CList.Clear();
+        }
+                   
+
+        await InvokeAsync(StateHasChanged);
+
+    }     
+
+
+    void CartChanged()
+    {
+        Msg = "";
+        // Check if CList is null and initialize it if needed
+        if (CList == null)
+        {
+            CList = new List<CartItem>();
+        }
+
+        // Initialize uinfo if null
+        if (uinfo == null)
+        {
+            uinfo = new UserInfo();
+        }
+        string jsonc = JsonConvert.SerializeObject(CList);
+        LocalStore.SetAsync($"MYCART_{uinfo.UserId}", jsonc);
+    }
+
+    async void CheckOut()
+    {
+        if (CList.Count == 0)
+        {
+            Msg = "shopping cart is empty..";
+            return;
+        }
+
+        // see if user is logged in
+        var json = await sessionStore.GetAsync<string>("USERINFO");
+        string jsonstr = json.Value;
+        if (jsonstr == null)
+        {
+            uriManager.NavigateTo("login");            
+        }
+        else
+            uriManager.NavigateTo("checkout");
+    }
+}

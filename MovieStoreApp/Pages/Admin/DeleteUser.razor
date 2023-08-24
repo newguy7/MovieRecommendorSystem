@@ -1,0 +1,42 @@
+﻿@page "/deleteuser"
+@attribute [Authorize(Roles = "Admin, Manager")]
+@using Microsoft.AspNetCore.Identity
+@inject RoleManager<IdentityRole> roleManager
+@inject UserManager<IdentityUser> userManager
+
+
+<h3>Delete User</h3>
+<br />
+<input @bind="email" type="email" placeholder="Enter user's email to delete" />
+<button @onclick="Delete">Delete User</button>
+<br />
+<p>@Msg</p>
+
+@code {
+    string? Msg;
+    string email = string.Empty;
+
+    protected async Task Delete()
+    {
+        var user = await userManager.FindByEmailAsync(email);
+        if (user != null)
+
+        // remove all roles for the user
+
+        {
+            var res = await userManager.RemoveFromRolesAsync(user, await userManager.GetRolesAsync(user));
+
+            //Delete the user
+            var res2 = await userManager.DeleteAsync(user);
+            if (res2.Succeeded)
+                Msg = "User deleted...";
+            else
+                Msg = "User could not be deleted";
+        }
+        else
+            Msg = "User does not exist...";
+
+        StateHasChanged();
+
+    }
+}

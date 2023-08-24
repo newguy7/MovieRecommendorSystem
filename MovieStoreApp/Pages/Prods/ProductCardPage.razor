@@ -1,0 +1,125 @@
+﻿@using MovieStoreApp.Models
+@using Microsoft.EntityFrameworkCore
+@using System.Linq
+@using MovieStoreApp.ModelsDTO
+@using MovieStoreApp.Repositories
+@using System.Threading.Tasks;
+@using Newtonsoft.Json;
+@using System.Net.Http;
+@inject MoviesAppDbContext context
+@inject DialogService dialogService
+@inject HttpClient _httpClient
+
+
+<h3>Product Detail</h3>
+<div class="row">
+    <div class="col-lg-6 d-flex">
+        <RadzenCard style="width: 100%; overflow: hidden;">
+            <h3 class="h5">@product.Title</h3>
+            <div class="d-flex flex-row">
+                <div>
+                    @if ((bool)product.OnSale)
+                    {
+                        <b>OnSale</b>
+                        <br/>
+                    }
+                    
+                    @if ((bool)product.OutOfStock)
+                    {
+                        <b>OutOfStock</b>
+                    }
+                    else
+                    {
+                        <b>Available</b>
+                    }
+                    <div class="mt-3">
+                        Released Year :
+                        <b>@(String.Format("{0:yyyy}", product.ReleasedYear))</b>
+                    </div>
+                    <div class="mt-3">Price :
+                        <b>@(String.Format("{0:c}",product.Price))</b>
+                    </div>
+                </div>
+            </div>
+        </RadzenCard>
+    </div>
+    <div class="col-lg-6 d-flex">
+        <RadzenCard style="width:100%; overflow:hidden;">
+            <div class="row">               
+
+                <div class="col">
+                    @if (!string.IsNullOrEmpty(product.MovieImage))
+                    {
+                        <RadzenImage Path="@product.MovieImage" style="width:130px; height: 100px; border-radius: 8px" />
+                    }
+                    else
+                    {
+                        <RadzenImage Path="@PosterUrl" style="width:130px; height: 100px; border-radius: 8px" />
+                    }
+                </div>
+            </div>
+        </RadzenCard>
+    </div>
+</div>
+<div class="row my-4">
+    <RadzenCard>
+        <div class="row">
+            <div class="col-md-5 text-start">
+                @product.Title &nbsp;
+            </div><div class="col-md-7 text-end">
+                Quantity:
+                <div class="input-group input-group-sm">
+                    <input class="form-control" @bind="quantity" type="number" min="1" />                    
+                </div>
+                
+                <RadzenButton Click="@((args)=>dialogService.Close(quantity))"
+                    Text="Add to Cart" ButtonStyle="ButtonStyle.Primary" style="background-color:deepskyblue;" />
+            </div>
+        </div>        
+    </RadzenCard>
+</div>
+<div class="row">
+    <div class="col-md-12 text-right">
+        <RadzenButton Click="@((args) => dialogService.Close(0))"
+        ButtonStyle="ButtonStyle.Danger" Text="Close" style="background-color:dodgerblue;width: 120px" class="mr-1" />
+    </div>
+<div class="col-md-4 text-right">
+
+</div>
+</div>
+
+@code {
+    [Parameter] public int MovieID { get; set; }
+    //new
+    [Parameter] public int TmdbId { get; set; }
+    [Parameter] public string PosterUrl { get; set; }
+    MovieDTO product;
+    int quantity = 1;
+    
+
+    //protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
+    {
+        MovieStoreAppRepositoryEF rep = new MovieStoreAppRepositoryEF(context);
+        product = rep.GetMovieById(MovieID);
+
+        
+    }
+    
+    private void DecreaseQuantity()
+    {
+        if (quantity > 1)
+        {
+            quantity--;
+        }
+    }
+    
+    private void IncreaseQuantity()
+    {
+        quantity++;
+    }
+
+    
+
+
+}

@@ -1,0 +1,76 @@
+﻿@page "/checkout"
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Newtonsoft.Json
+@using MovieStoreApp.Models
+@using MovieStoreApp.ModelsVM
+@using MovieStoreApp.Repositories
+@inject ProtectedSessionStorage SessionStore
+@inject ProtectedLocalStorage LocalStore
+@inject NavigationManager uriManager
+@inject MoviesAppDbContext context
+<br />
+
+<div style="display:@disp">
+    <ShoppingCart MyCart="CList" OnShoppingCartChanged="CartChanged"/>
+    <br />
+    <button @onclick="ConfirmCheckout">Place Order for Above Items</button>
+</div>
+<br />
+<p>@Msg</p>
+
+@code {
+    List<CartItem> CList;
+    UserInfo uinfo;
+    string disp = "block";
+    string Msg;
+
+    protected async override void OnInitialized()
+    {
+        var json = await LocalStore.GetAsync<string>("MYCART");
+        string jsonstr = json.Value;
+        if (jsonstr != null)
+            CList = JsonConvert.DeserializeObject<List<CartItem>>(jsonstr);
+        else
+            CList = new List<CartItem>();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    void CartChanged()
+    {
+        Msg = "";
+        string jsonc = JsonConvert.SerializeObject(CList);
+        LocalStore.SetAsync("MYCART", jsonc);
+    }
+
+    async void ConfirmCheckout()
+    {
+        if (CList.Count == 0)
+        {
+            Msg = "Shopping cart is empty..";
+            return;
+        }
+        //see if user is logged in
+        var json = await SessionStore.GetAsync<string>("USERINFO");
+        var jsonstr = json.Value;
+        if (jsonstr == null)
+        {
+            uriManager.NavigateTo("login");
+        }
+        else
+        {
+            UserInfo uinfo = JsonConvert.DeserializeObject<UserInfo>(jsonstr);
+            MovieStoreAppRepositoryEF rep = new MovieStoreAppRepositoryEF(context);
+            bool res = rep.PlaceOrder(CList, uinfo);
+            if (res == true)
+            {
+                CList.Clear();
+                string jsonc = JsonConvert.SerializeObject(CList);
+                await LocalStore.SetAsync("MYCART", jsonc);
+                disp = "none";
+                Msg = "Thank you for shopping with The Movie Store.<br/> Your order has been placed..";
+                StateHasChanged();
+            }
+        }
+    }
+}

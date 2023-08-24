@@ -1,0 +1,155 @@
+﻿@page "/showusers"
+@attribute [Authorize(Roles = "Admin, Manager")]
+@using MovieStoreApp.Models
+@using MovieStoreApp.Pages.Common
+@inject IJSRuntime js
+@inject MoviesAppDbContext MContext
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore;
+@inject UserManager<IdentityUser> userManager
+@inject NavigationManager uriHelper
+
+
+<h3>All Users</h3>
+<div class="form-group">
+    <a class="btn btn-success" href="adminpages/newuser"><i class="oi oi-plus"></i>Add New User</a>
+</div>
+<br>
+@if (AllUsers == null)
+{
+    <text>Loading...</text>
+}
+else if (AllUsers.Count == 0)
+{
+    <text>No Records Found.</text>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (UserModel user in AllUsers)
+            {
+                <tr>
+                    <td>@user.Id</td>
+                    <td>@user.Email</td>
+                    <td>@user.Roles</td>
+                    <td>
+                        <a class="btn btn-success" href="edituser/edit/@user.Id">Edit</a>
+                        <button class="btn btn-danger" @onclick="@(() => Delete(user.Id, user.Email))">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (DeleteDialogOpen)
+    {
+        <MyModal @ref="MModal" Title="Are you sure?" DialogType="MyModal.ModalDialogType.OkCancel" Text="Do you want to delete this user?" OnClose="@OnDeleteDialogClose">
+        </MyModal>
+
+    }
+}
+
+@code {
+    List<UserModel> AllUsers { get; set; } = new List<UserModel>();
+    string? Msg;
+    string UserId;
+
+    MyModal MModal; //modal dialog
+    public bool DeleteDialogOpen { get; set; }  // for modal case
+
+    protected override async Task OnInitializedAsync()
+    {
+        AllUsers.Clear();
+        GetAllUsers();
+    }
+
+    private async Task OnDeleteDialogClose(bool dlgresult)
+    {
+        DeleteDialogOpen = false;
+        if (dlgresult == true) //user said ok in the modal
+        {
+            // ------delete user, first remove all roles for user
+            string userId = UserId;
+            var userIden = await userManager.FindByIdAsync(userId);
+            if (userIden != null)
+            {
+                var res = await userManager.RemoveFromRolesAsync(userIden, await userManager.GetRolesAsync(userIden));
+                var res2 = await userManager.DeleteAsync(userIden);
+                if (res2.Succeeded)
+                {
+                    Msg = "User deleted..";
+                }
+                else
+                    Msg = "User could not be deleted";
+            }
+            else
+                Msg = "User does not exist..";
+            await OnInitializedAsync();
+        }
+    }
+
+    //async Task Delete(string userId, string email)
+    //{
+    //    if (await js.InvokeAsync<bool>("Confirm", $"Do you want to delete user {email} ?"))
+    //    {
+    //        //-----delete user, first remove all roles for user
+    //        var userIden = await userManager.FindByIdAsync(userId);
+    //        if (userIden != null)
+    //        {
+    //            var res = await userManager.RemoveFromRolesAsync(userIden, await userManager.GetRolesAsync(userIden));
+    //            var res2 = await userManager.DeleteAsync(userIden);
+    //            if (res2.Succeeded)
+    //            {
+    //                Msg = "User deleted..";
+    //            }
+    //            else
+    //                Msg = "User could not be deleted";
+    //        }
+    //        else
+    //            Msg = "User does not exist..";
+    //        await OnInitializedAsync();
+    //    }
+    //}
+
+    async Task Delete(string userId, string email)
+    {
+        @attribute [Authorize(Roles = "Admin, Manager")]
+        DeleteDialogOpen = true; // to show modal
+        UserId = userId; // for passing userid to after Modal is closed
+        StateHasChanged(); // will show modal
+    }
+
+    void GetAllUsers()
+    {
+        var Users = MContext.AspNetUsers.Include(u => u.Roles).AsNoTracking().ToList<AspNetUser>();
+        //AsNoTracking() is important as without it, cached data is returned
+        foreach (var user in Users)
+        {
+            List<AspNetRole> userRoles = user.Roles.ToList();
+            string roles = "";
+            foreach (var role in userRoles)
+
+                roles += role.Name + "|";
+            if (roles.Length > 0)
+                roles = roles.Substring(0, roles.Length - 1);
+            UserModel um = new UserModel { Id = user.Id, Email = user.Email, Roles = roles };
+            AllUsers.Add(um);
+        }
+    }
+
+    class UserModel
+    {
+        public string Id { get; set; }
+        public string Email { get; set; }
+        public string Roles { get; set; }
+    }
+}

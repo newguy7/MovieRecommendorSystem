@@ -1,0 +1,123 @@
+﻿@page "/addbulkmovies"
+@using Microsoft.EntityFrameworkCore
+@using MovieStoreApp.Models
+@using MovieStoreApp.Repositories
+@using OfficeOpenXml;
+@inject MoviesAppDbContext context
+@inject NavigationManager uriHelper
+@inject IJSRuntime js
+
+<h3>Bulk Add Movies</h3>
+
+<InputFile OnChange="HandleFileSelection" accept=".xlsx" maxFileSize="10048576" />
+
+<button @onclick="BulkAddMovies">Add Bulk Movies</button>
+
+<p>@Msg</p>
+
+
+@code {
+    private string Msg = "";
+    private IBrowserFile selectedFile;
+
+
+    private void HandleFileSelection(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+    }
+
+    private async Task BulkAddMovies()
+    {
+        if (selectedFile != null)
+        {
+            // Call the BulkAddMoviesFromExcel method passing the selected file
+            await BulkAddMoviesFromExcel(selectedFile);
+        }
+    }
+
+
+    public async Task BulkAddMoviesFromExcel(IBrowserFile excelFile)
+    {
+        try
+        {
+            using (var memoryStream = new MemoryStream())
+            {
+                await excelFile.OpenReadStream().CopyToAsync(memoryStream);
+                memoryStream.Position = 0;
+
+                using (var package = new ExcelPackage(memoryStream))
+                {
+                    // Get the first worksheet
+                    var worksheet = package.Workbook.Worksheets[0];
+
+                    // Determine the number of rows and columns in the worksheet
+                    int rowCount = worksheet.Dimension.Rows;
+                    int colCount = worksheet.Dimension.Columns;
+
+                    // Prepare a list to hold the movies
+                    List<Movie> moviesToAdd = new List<Movie>();
+
+                    using (var context = new MoviesAppDbContext()) // Replace with your actual DbContext class name
+                    {
+                        MovieStoreAppRepositoryEF rep = new MovieStoreAppRepositoryEF(context);
+
+                        var existingMovieIds = context.Movies.Select(m => m.MovieId).ToList();
+                        var existingImdbIds = context.Movies.Select(m => m.ImdbId).ToList();
+
+                        int moviesAddedCount = 0;
+
+                        // Iterate through each row and check if the movie already exists
+                        for (int row = 2; row <= rowCount; row++) // Assuming data starts from the second row
+                        {
+                            // Assuming your data is in columns A to J
+                            Movie movie = new Movie
+                                {
+                                    MovieId = Convert.ToInt32(worksheet.Cells[row, 1].Value),
+                                    Title = worksheet.Cells[row, 2].Value.ToString(),
+                                    Genre = worksheet.Cells[row, 4].Value.ToString(),
+                                    Price = Convert.ToDecimal(worksheet.Cells[row, 6].Value),
+                                    OnSale = Convert.ToBoolean(worksheet.Cells[row, 7].Value),
+                                    OutOfStock = Convert.ToBoolean(worksheet.Cells[row, 8].Value),
+                                    ReleasedYear = Convert.ToDateTime(worksheet.Cells[row, 3].Value),
+                                    GenreId = Convert.ToInt32(worksheet.Cells[row, 5].Value),
+                                    ImdbId = Convert.ToInt32(worksheet.Cells[row, 9].Value),
+                                    TmdbId = Convert.ToInt32(worksheet.Cells[row, 10].Value)
+                                };
+
+                            bool movieExists = existingMovieIds.Contains(movie.MovieId) || existingImdbIds.Contains(movie.ImdbId);
+
+                            if (!movieExists)
+                            {
+                                moviesToAdd.Add(movie);
+                                rep.AddBulkMovie(movie);
+                                moviesAddedCount++;
+                            }                          
+                            
+
+                        }
+                        
+                        if (moviesAddedCount > 0)
+                        {
+                            Msg = $"{moviesAddedCount} movies added successfully.";
+                        }
+                        else
+                        {
+                            Msg = "No new movies found to add.";
+                        }
+                    }
+                }
+            }
+        }
+
+        catch (FormatException ex)
+        {
+            Msg = "Problem in adding movie, " + ex.Message;           
+
+
+        }
+    
+    }
+
+    
+
+}

@@ -1,0 +1,72 @@
+﻿@using MovieStoreApp.Models
+@using Microsoft.EntityFrameworkCore
+@using System.Linq
+@using MovieStoreApp.ModelsDTO
+@using MovieStoreApp.Repositories
+@inject MoviesAppDbContext context
+@inject DialogService dialogService
+
+<h3>Order Detail</h3>
+<div class="row">
+    <div class="col-lg-6 d-flex">
+        <RadzenCard Style="width: 100%; overflow: hidden;">
+            <h3 class="h5">Contact</h3>
+            <div class="d-flex flex-row">
+                <div>
+                    <b>@(order.FirstName + " " + order.LastName)</b>
+                    <div class="mt-3">Telephone : <b>@order.Telephone</b></div>
+                </div>
+            </div>
+        </RadzenCard>
+    </div>
+    <div class="col-lg-6 d-flex">
+        <RadzenCard Style="width: 100%; overflow: hidden;">
+            <h3 class="h5">Delivery Information</h3>
+            <div class="row">
+                <div class="col">
+                    <div>Address</div>
+                    <b>@(order.Address), @(order.City), @(order.State)</b>
+                    <div class="mt-3">Telephone : @(order.Telephone)</div>
+                </div>
+            </div>
+        </RadzenCard>
+    </div>
+</div>
+<div class="row my-4">
+    <div class="col-md-12">
+        <RadzenCard>
+            <h3 class="h5">
+                Order @OrderID Details
+            </h3>
+            <RadzenDataGrid AllowFiltering="true" AllowPaging="true" AllowSorting="true" 
+                FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" 
+                Data="@orderItems" TItem="OrderItemDTO" 
+                ColumnWidth="200px" class="mt-3">
+                <Columns>
+                    <RadzenDataGridColumn TItem="OrderItemDTO" Property="OrderDate" Title="Order Date" />
+                    <RadzenDataGridColumn TItem="OrderItemDTO" Property="Title" Title="Movie Title" />
+                    <RadzenDataGridColumn TItem="OrderItemDTO" Property="Quantity" Title="Quantity" />
+                    <RadzenDataGridColumn TItem="OrderItemDTO" Property="Price" Title="Price" FormatString="{0:c}" />
+                </Columns>
+            </RadzenDataGrid>                
+        </RadzenCard>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12 text-right">
+        <RadzenButton Click="@((args) => dialogService.Close(true))" Text="OK" Style="width: 120px" />
+    </div>
+</div>
+
+@code {
+    [Parameter] public int OrderID { get; set; }
+    OrderDTO order;    
+    IEnumerable<OrderItemDTO> orderItems;
+
+    protected override void OnInitialized()
+    {
+        MovieStoreAppRepositoryEF rep = new MovieStoreAppRepositoryEF(context);
+        order = rep.GetOrderInfo(OrderID);
+        orderItems = rep.GetOrderItems(OrderID);
+    }
+}
